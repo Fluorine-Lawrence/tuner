@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 深色背景 -->
+    <path
+        android:fillColor="#12141A"
+        android:pathData="M0,0 h108 v108 h-108 z" />
+
+    <!-- 绿色表盘 -->
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M54,22 a32,32 0 1,1 0.01,0 z" />
+
+    <!-- 指针 -->
+    <path
+        android:fillColor="#12141A"
+        android:pathData="M50,54 h8 v-20 h-8 z" />
+
+    <!-- 中心圆 -->
+    <path
+        android:fillColor="#12141A"
+        android:pathData="M54,54 a7,7 0 1,1 0.01,0 z" />
+</vector>

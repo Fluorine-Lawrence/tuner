@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 背景 -->
+    <color name="bg_dark">#0F1218</color>
+    <color name="surface">#1B2028</color>
+    <color name="surface_2">#242B36</color>
+
+    <!-- 品牌/状态色 -->
+    <color name="accent">#34D399</color>
+    <color name="accent_dark">#10B981</color>
+    <color name="on_accent">#06231A</color>
+    <color name="good">#22C55E</color>
+    <color name="warn">#F59E0B</color>
+    <color name="danger">#EF4444</color>
+
+    <!-- 文字 -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#9AA3B2</color>
+    <color name="text_dim">#6B7280</color>
+
+    <!-- 描边 -->
+    <color name="border">#2A3140</color>
+</resources>
