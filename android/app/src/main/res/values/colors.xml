@@ -1,23 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 背景 -->
-    <color name="bg_dark">#0F1218</color>
-    <color name="surface">#1B2028</color>
-    <color name="surface_2">#242B36</color>
+    <!-- ===== 深色专业仪器风 ===== -->
+    <color name="bg">#0B0F14</color>           <!-- 近黑深蓝底 -->
+    <color name="surface">#141A22</color>       <!-- 深色卡片 -->
+    <color name="surface_2">#1C242E</color>     <!-- 次级卡片/输入框 -->
+    <color name="border">#2A3442</color>        <!-- 描边 -->
 
-    <!-- 品牌/状态色 -->
-    <color name="accent">#34D399</color>
-    <color name="accent_dark">#10B981</color>
-    <color name="on_accent">#06231A</color>
-    <color name="good">#22C55E</color>
-    <color name="warn">#F59E0B</color>
-    <color name="danger">#EF4444</color>
+    <color name="primary">#2DD4BF</color>       <!-- 青绿：主色/选中/调准 -->
+    <color name="primary_dark">#14B8A6</color>  <!-- 青绿深：按压 -->
+    <color name="accent">#F59E0B</color>        <!-- 琥珀：强调/警示 -->
+    <color name="good">#2DD4BF</color>          <!-- 调准 = 青绿 -->
+    <color name="warn">#F59E0B</color>          <!-- 接近/偏高偏低 = 琥珀 -->
+    <color name="danger">#F87171</color>        <!-- 拧反/错弦 = 红 -->
 
-    <!-- 文字 -->
-    <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#9AA3B2</color>
+    <color name="text_primary">#E5E7EB</color>
+    <color name="text_secondary">#9CA3AF</color>
     <color name="text_dim">#6B7280</color>
 
-    <!-- 描边 -->
-    <color name="border">#2A3140</color>
+    <color name="on_accent">#04211D</color>     <!-- 青绿底深字 -->
+    <color name="on_primary">#04211D</color>
+
+    <!-- 兼容旧名 -->
+    <color name="bg_dark">@color/bg</color>
 </resources>

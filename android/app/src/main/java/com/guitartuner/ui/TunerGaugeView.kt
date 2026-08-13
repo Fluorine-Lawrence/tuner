@@ -1,20 +1,21 @@
 package com.guitartuner.ui
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * 调音指针仪表盘：半圆形刻度（±100 音分），红→黄→绿→黄→红 彩色分区，
- * 指针随偏差摆动，调准时指针发光；无信号时彩色区变暗、指针变灰。
+ * 调音指针仪表盘：深底发光刻度，半圆形量程（±100 音分），
+ * 红→琥珀→青绿→琥珀→红 彩色分区，指针平滑摆动，调准时青绿发光。
  */
 class TunerGaugeView @JvmOverloads constructor(
     context: Context,
@@ -22,47 +23,58 @@ class TunerGaugeView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
-    private var cents = 0.0
+    private var targetCents = 0.0
+    private var currentCents = 0.0
     private var active = false
+    private var animator: ValueAnimator? = null
 
     private val density = resources.displayMetrics.density
 
     private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 13f * density
-        color = 0xFF232A36.toInt()
+        strokeWidth = 14f * density
+        color = 0xFF1C242E.toInt()
     }
     private val zonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 13f * density
+        strokeWidth = 14f * density
         strokeCap = Paint.Cap.BUTT
     }
     private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         strokeWidth = 1.5f * density
-        color = 0xFF5A6478.toInt()
+        color = 0xFF3A4656.toInt()
     }
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         textSize = 11f * density
-        color = 0xFF6B7280.toInt()
+        color = 0xFF9CA3AF.toInt()
     }
     private val needlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 4f * density
+        strokeWidth = 5f * density
         strokeCap = Paint.Cap.ROUND
     }
     private val pivotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0xFF9AA3B2.toInt()
+        color = 0xFFE5E7EB.toInt()
     }
     private val centerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.WHITE
+        color = 0xFF0B0F14.toInt()
     }
 
     fun setCents(c: Double) {
-        cents = c.coerceIn(-RANGE, RANGE)
-        invalidate()
+        targetCents = c.coerceIn(-RANGE, RANGE)
+        animator?.cancel()
+        animator = ValueAnimator.ofFloat(currentCents.toFloat(), targetCents.toFloat()).apply {
+            duration = 120
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                currentCents = (it.animatedValue as Float).toDouble()
+                invalidate()
+            }
+            start()
+        }
     }
 
     fun setActive(a: Boolean) {
@@ -85,7 +97,7 @@ class TunerGaugeView @JvmOverloads constructor(
         canvas.drawArc(rect, 180f, 180f, false, trackPaint)
 
         // 彩色分区（无信号时压暗）
-        val zoneAlpha = if (active) 255 else 70
+        val zoneAlpha = if (active) 255 else 50
         for (z in zones()) {
             zonePaint.color = z.color
             zonePaint.alpha = zoneAlpha
@@ -121,14 +133,14 @@ class TunerGaugeView @JvmOverloads constructor(
         }
 
         // 指针
-        val inTune = active && abs(cents) <= 5.0
-        needlePaint.color = if (active) colorForCents(cents) else 0xFF4A5262.toInt()
+        val inTune = active && abs(currentCents) <= 5.0
+        needlePaint.color = if (active) colorForCents(currentCents) else 0xFF3A4656.toInt()
         if (inTune) {
-            needlePaint.setShadowLayer(16f * density, 0f, 0f, 0x88_22C55E.toInt())
+            needlePaint.setShadowLayer(20f * density, 0f, 0f, 0xAA_2DD4BF.toInt())
         } else {
             needlePaint.clearShadowLayer()
         }
-        val needleRad = angleRad(cents)
+        val needleRad = angleRad(currentCents)
         val needleLen = r * 0.74f
         canvas.drawLine(
             cx, cy,
@@ -149,18 +161,18 @@ class TunerGaugeView @JvmOverloads constructor(
     private fun colorForCents(c: Double): Int {
         val a = abs(c)
         return when {
-            a <= 5 -> 0xFF22C55E.toInt()  // 绿（已调准）
-            a <= 30 -> 0xFFF59E0B.toInt() // 黄（接近）
-            else -> 0xFFEF4444.toInt()    // 红（偏离较大）
+            a <= 5 -> 0xFF2DD4BF.toInt()  // 青绿（已调准）
+            a <= 30 -> 0xFFF59E0B.toInt() // 琥珀（接近）
+            else -> 0xFFF87171.toInt()    // 红（偏离较大）
         }
     }
 
     private data class Zone(val startAngle: Float, val sweepAngle: Float, val color: Int)
 
     private fun zones(): List<Zone> {
-        val red = 0xFFEF4444.toInt()
+        val red = 0xFFF87171.toInt()
         val amber = 0xFFF59E0B.toInt()
-        val green = 0xFF22C55E.toInt()
+        val teal = 0xFF2DD4BF.toInt()
 
         fun zone(start: Double, end: Double, c: Int) = Zone(
             (180.0 + (start + RANGE) / (2.0 * RANGE) * 180.0).toFloat(),
@@ -170,7 +182,7 @@ class TunerGaugeView @JvmOverloads constructor(
         return listOf(
             zone(-100.0, -30.0, red),
             zone(-30.0, -5.0, amber),
-            zone(-5.0, 5.0, green),
+            zone(-5.0, 5.0, teal),
             zone(5.0, 30.0, amber),
             zone(30.0, 100.0, red)
         )

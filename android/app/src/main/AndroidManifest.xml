@@ -27,5 +27,13 @@
             android:name=".ui.CustomTuningActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".practice.ui.RepertoireActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".practice.ui.StatsActivity"
+            android:exported="false" />
+
     </application>
 </manifest>

@@ -36,5 +36,8 @@ android {
 }
 
 dependencies {
-    // 纯 Android framework + Kotlin 标准库，无任何第三方依赖，离线也可编译
+    // Material 设计组件 + 底部导航（美观优先，引入官方库）
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
 }

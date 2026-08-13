@@ -1,7 +1,6 @@
 package com.guitartuner.ui
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -70,14 +69,9 @@ class TuningListActivity : Activity() {
     }
 
     private fun confirmDelete(t: Tuning) {
-        AlertDialog.Builder(this)
-            .setTitle("删除自定义调弦")
-            .setMessage("确定删除「${t.name}」吗？")
-            .setPositiveButton("删除") { _, _ ->
-                TuningStore.deleteCustom(this, t.name)
-                reload()
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        Dialogs.confirm(this, "删除自定义调弦", "确定删除「${t.name}」吗？", "删除", "取消") {
+            TuningStore.deleteCustom(this, t.name)
+            reload()
+        }
     }
 }
