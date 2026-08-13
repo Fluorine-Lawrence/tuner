@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0F1218">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="调音器">
+<title>乐器调音器</title>
+<style>
+  :root {
+    --bg: #0F1218;
+    --surface: #1B2028;
+    --surface2: #242B36;
+    --accent: #34D399;
+    --accent-dark: #10B981;
+    --on-accent: #06231A;
+    --good: #22C55E;
+    --warn: #F59E0B;
+    --danger: #EF4444;
+    --text: #FFFFFF;
+    --text2: #9AA3B2;
+    --text3: #6B7280;
+    --border: #2A3140;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    height: 100%;
+    overscroll-behavior: none;
+  }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  /* 滚动条隐藏 */
+  .hscroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .hscroll::-webkit-scrollbar { display: none; }
+
+  /* 乐器条 */
+  #instrumentRow { display: flex; gap: 8px; flex-shrink: 0; }
+  .chip {
+    padding: 9px 14px; border-radius: 10px; background: var(--surface);
+    border: 1px solid var(--border); color: var(--text2); font-size: 14px;
+    white-space: nowrap; cursor: pointer; user-select: none; flex-shrink: 0;
+  }
+  .chip.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+
+  /* 提示胶囊 */
+  #hint {
+    margin-top: 12px; min-height: 40px; padding: 9px 16px; border-radius: 16px;
+    background: var(--surface2); text-align: center; font-size: 15px; color: var(--text2);
+    display: flex; align-items: center; justify-content: center;
+    transition: background-color .15s ease, color .15s ease;
+  }
+
+  /* 音名 */
+  #note { margin-top: 18px; text-align: center; font-size: 80px; font-weight: 700; letter-spacing: .04em; line-height: 1; }
+  #detail { margin-top: 4px; text-align: center; font-size: 17px; color: var(--text2); }
+
+  /* 仪表盘 */
+  #gaugeWrap { flex: 1; min-height: 180px; display: flex; align-items: center; justify-content: center; margin-top: 4px; }
+  #gauge { width: 100%; height: 100%; max-height: 240px; display: block; }
+
+  #freq { text-align: center; font-size: 15px; color: var(--text3); font-variant-numeric: tabular-nums; }
+  #cents { text-align: center; font-size: 22px; color: var(--text); font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+  /* 弦选择条 */
+  #stringRow { display: flex; gap: 6px; margin-top: 14px; flex-shrink: 0; }
+  .string {
+    min-width: 56px; padding: 7px 6px; border-radius: 10px; background: var(--surface);
+    border: 1px solid var(--border); color: var(--text2); text-align: center; font-size: 12px;
+    cursor: pointer; user-select: none; flex-shrink: 0; line-height: 1.3;
+  }
+  .string .n { font-weight: 700; display: block; }
+  .string.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+  /* 底部按钮 */
+  #startBtn {
+    width: 100%; height: 52px; border: none; border-radius: 28px; background: var(--accent);
+    color: var(--on-accent); font-size: 17px; font-weight: 600; margin-top: 14px; cursor: pointer;
+  }
+  #startBtn.running { background: var(--danger); color: #fff; }
+  #btnRow { display: flex; gap: 12px; margin-top: 12px; }
+  #btnRow button {
+    flex: 1; height: 48px; border-radius: 28px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); font-size: 15px; cursor: pointer;
+  }
+
+  /* 模态 */
+  .modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+    align-items: center; justify-content: center; z-index: 50; padding: 20px;
+  }
+  .modal.open { display: flex; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+    width: 100%; max-width: 440px; max-height: 82vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .panel h2 { margin: 0; padding: 18px 20px 12px; font-size: 18px; }
+  .panel .body { overflow-y: auto; padding: 4px 16px 16px; }
+  .titem {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 13px 6px; border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .titem:last-child { border-bottom: none; }
+  .titem .tname { font-size: 16px; }
+  .titem .tnotes { font-size: 13px; color: var(--text3); margin-top: 2px; }
+  .titem.sel .tname { color: var(--accent); font-weight: 600; }
+  .del { color: var(--danger); font-size: 13px; padding: 6px 10px; flex-shrink: 0; cursor: pointer; }
+  .footer { display: flex; gap: 10px; padding: 14px 16px 16px; border-top: 1px solid var(--border); }
+  .footer button { flex: 1; height: 44px; border-radius: 22px; border: none; font-size: 15px; cursor: pointer; }
+  .btn-primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+  /* 自定义编辑器 */
+  .field { margin-top: 12px; }
+  .field label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 12px 14px; border-radius: 12px; background: var(--surface2);
+    border: 1px solid var(--border); color: var(--text); font-size: 17px;
+  }
+  .srow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .srow .lab { width: 46px; font-size: 13px; color: var(--text2); flex-shrink: 0; }
+  .srow select {
+    flex: 1; padding: 10px; border-radius: 10px; background: var(--surface2);
+    border: 1px solid var(--border); color: var(--text); font-size: 15px;
+  }
+  .smallrow { display: flex; gap: 10px; margin-top: 14px; }
+  .smallrow button { flex: 1; height: 42px; border-radius: 21px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 14px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hscroll"><div id="instrumentRow"></div></div>
+
+  <div id="hint">点击下方「开始调音」授权麦克风</div>
+
+  <div id="note">—</div>
+  <div id="detail"></div>
+
+  <div id="gaugeWrap"><canvas id="gauge"></canvas></div>
+
+  <div id="freq"></div>
+  <div id="cents"></div>
+
+  <div class="hscroll"><div id="stringRow"></div></div>
+
+  <button id="startBtn">🎙 开始调音</button>
+  <div id="btnRow">
+    <button id="modeBtn">智能模式</button>
+    <button id="tuningBtn">选择调弦</button>
+  </div>
+</div>
+
+<!-- 调弦选择 -->
+<div class="modal" id="tuningModal">
+  <div class="panel">
+    <h2 id="tuningModalTitle">选择调弦</h2>
+    <div class="body" id="tuningList"></div>
+    <div class="footer">
+      <button class="btn-primary" id="newTuningBtn">＋ 新建自定义</button>
+      <button class="btn-secondary" id="closeTuningBtn">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 自定义调弦编辑器 -->
+<div class="modal" id="customModal">
+  <div class="panel">
+    <h2 id="customModalTitle">自定义调弦</h2>
+    <div class="body">
+      <div class="field">
+        <label>调弦名称</label>
+        <input id="customName" type="text" placeholder="例如：我的调弦">
+      </div>
+      <div class="field">
+        <label>弦设置（第1弦最高音最细，往下越低）</label>
+        <div id="customStrings"></div>
+      </div>
+      <div class="smallrow">
+        <button id="addStringBtn">＋ 添加弦</button>
+        <button id="removeStringBtn">－ 移除末弦</button>
+      </div>
+    </div>
+    <div class="footer">
+      <button class="btn-primary" id="saveCustomBtn">保存</button>
+      <button class="btn-secondary" id="cancelCustomBtn">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ================= 音高工具 ================= */
+const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const PITCH_OF = { "C":0,"C#":1,"D":2,"D#":3,"E":4,"F":5,"F#":6,"G":7,"G#":8,"A":9,"A#":10,"B":11 };
+
+function midiOf(name, octave){ return (octave+1)*12 + PITCH_OF[name]; }
+function freqOf(midi){ return 440 * Math.pow(2, (midi-69)/12); }
+function midiFromFreq(f){ return Math.round(69 + 12*Math.log2(f/440)); }
+function parseNote(s){
+  let i = s.length; while (i>0 && (s[i-1]>='0'&&s[i-1]<='9')) i--;
+  const name = s.slice(0,i), octave = parseInt(s.slice(i),10);
+  return { midi: midiOf(name, octave), name, octave, fullName: s, freq: freqOf(midiOf(name,octave)) };
+}
+function centsBetween(f, targetFreq){ return 1200 * Math.log2(f/targetFreq); }
+
+/* ================= 调弦数据 ================= */
+// 预设：从低音到高音书写
+const PRESETS = {
+  guitar: [
+    ["标准 EADGBE", ["E2","A2","D3","G3","B3","E4"]],
+    ["降半音 Eb", ["D#2","G#2","C#3","F#3","A#3","D#4"]],
+    ["降全音 D", ["D2","G2","C3","F3","A3","D4"]],
+    ["Drop D", ["D2","A2","D3","G3","B3","E4"]],
+    ["Drop C#", ["C#2","G#2","C#3","F#3","A#3","D#4"]],
+    ["Drop C", ["C2","G2","C3","F3","A3","D4"]],
+    ["Double Drop D", ["D2","A2","D3","G3","B3","D4"]],
+    ["DADGAD", ["D2","A2","D3","G3","A3","D4"]],
+    ["Open D", ["D2","A2","D3","F#3","A3","D4"]],
+    ["Open E", ["E2","B2","E3","G#3","B3","E4"]],
+    ["Open G", ["D2","G2","D3","G3","B3","D4"]],
+    ["Open A", ["E2","A2","E3","A3","C#4","E4"]],
+    ["Open C", ["C2","G2","C3","G3","C4","E4"]],
+    ["All Fourths", ["E2","A2","D3","G3","C4","F4"]],
+    ["New Standard (NST)", ["C2","G2","D3","A3","E4","G4"]]
+  ],
+  bass: [
+    ["标准 EADG", ["E1","A1","D2","G2"]],
+    ["Drop D", ["D1","A1","D2","G2"]],
+    ["降半音", ["D#1","G#1","C#2","F#2"]],
+    ["五弦 B 标准", ["B0","E1","A1","D2","G2"]]
+  ],
+  violin: [
+    ["标准 GDAE", ["G3","D4","A4","E5"]],
+    ["降半音", ["F#3","C#4","G#4","D#5"]]
+  ],
+  viola: [["标准 CGDA", ["C3","G3","D4","A4"]]],
+  cello: [["标准 CGDA", ["C2","G2","D3","A3"]]],
+  erhu: [
+    ["D-A（标准）", ["D4","A4"]],
+    ["C-G", ["C4","G4"]],
+    ["G-D", ["G3","D4"]]
+  ],
+  guzheng: [
+    ["D调（标准）", pentatonic("D",2)],
+    ["G调", pentatonic("G",2)]
+  ]
+};
+
+function pentatonic(rootName, octave){
+  const iv = [0,2,4,7,9];
+  const out = [];
+  let base = midiOf(rootName, octave);
+  while (out.length < 21){
+    for (const d of iv){ if (out.length<21){ out.push(noteName(base+d)); } }
+    base += 12;
+  }
+  return out;
+}
+function noteName(midi){ return NOTE_NAMES[((midi%12)+12)%12] + (Math.floor(midi/12)-1); }
+
+const INSTRUMENTS = [
+  {key:"guitar", name:"吉他"},
+  {key:"bass", name:"贝斯"},
+  {key:"violin", name:"小提琴"},
+  {key:"viola", name:"中提琴"},
+  {key:"cello", name:"大提琴"},
+  {key:"erhu", name:"二胡"},
+  {key:"guzheng", name:"古筝"}
+];
+
+// 把「从低到高」的音符数组转成「弦号升序」的 strings（index0 = 1弦最高音）
+function stringsFromLowToHigh(arr){
+  const highToLow = arr.slice().reverse();
+  return highToLow.map((s,i)=>({ number:i+1, note: parseNote(s) }));
+}
+function makeTuning(name, lowToHigh, isCustom){
+  return { name, strings: stringsFromLowToHigh(lowToHigh), isCustom: !!isCustom };
+}
+function presetsFor(key){ return PRESETS[key].map(([n,arr])=>makeTuning(n,arr,false)); }
+function defaultFor(key){ return presetsFor(key)[0]; }
+
+/* ================= 存储 ================= */
+const store = {
+  get instrument(){ return localStorage.getItem("tuner.instrument") || "guitar"; },
+  set instrument(v){ localStorage.setItem("tuner.instrument", v); },
+  tuningKey(key){ return "tuner.tuning."+key; },
+  getTuning(key){ return localStorage.getItem(this.tuningKey(key)) || defaultFor(key).name; },
+  setTuning(key,name){ localStorage.setItem(this.tuningKey(key), name); },
+  get mode(){ return localStorage.getItem("tuner.mode") || "smart"; },
+  set mode(v){ localStorage.setItem("tuner.mode", v); },
+  get manualString(){ return parseInt(localStorage.getItem("tuner.manualString")||"0",10); },
+  set manualString(v){ localStorage.setItem("tuner.manualString", String(v)); },
+  get custom(){ try { return JSON.parse(localStorage.getItem("tuner.custom")||"[]"); } catch(e){ return []; } },
+  set custom(v){ localStorage.setItem("tuner.custom", JSON.stringify(v)); }
+};
+
+function allTunings(key){
+  return presetsFor(key).concat(store.custom.map(c=>makeTuning(c.name, c.notes, true)));
+}
+function currentTuning(key){
+  const name = store.getTuning(key);
+  return allTunings(key).find(t=>t.name===name) || defaultFor(key);
+}
+
+/* ================= YIN 音高检测 ================= */
+function yinDetect(buffer, sampleRate, threshold){
+  threshold = threshold || 0.10;
+  const w = Math.floor(buffer.length/2);
+  if (w < 8) return null;
+  const yin = new Float32Array(w);
+  for (let tau=0; tau<w; tau++){
+    let sum=0;
+    for (let i=0; i<w; i++){ const d=buffer[i]-buffer[i+tau]; sum += d*d; }
+    yin[tau]=sum;
+  }
+  yin[0]=1;
+  let runningSum=0;
+  for (let tau=1; tau<w; tau++){ runningSum += yin[tau]; yin[tau] = yin[tau]*tau/runningSum; }
+  let tauEst=-1;
+  for (let tau=2; tau<w; tau++){
+    if (yin[tau] < threshold){
+      while (tau+1<w && yin[tau+1] < yin[tau]) tau++;
+      tauEst = tau; break;
+    }
+  }
+  if (tauEst === -1) return null;
+  let better = tauEst;
+  if (tauEst>0 && tauEst+1<w){
+    const s0=yin[tauEst-1], s1=yin[tauEst], s2=yin[tauEst+1];
+    const denom = 2*(2*s1-s2-s0);
+    if (Math.abs(denom) > 1e-9) better = tauEst + (s2-s0)/denom;
+  }
+  if (better <= 0) return null;
+  const freq = sampleRate/better;
+  const confidence = Math.max(0, Math.min(1, 1 - yin[tauEst]));
+  return { freq, confidence };
+}
+
+/* ================= 调音引擎 ================= */
+const Hint = { LISTENING:"LISTENING", IN_TUNE:"IN_TUNE", SHARP:"SHARP", FLAT:"FLAT",
+  WRONG_DIRECTION:"WRONG_DIRECTION", WRONG_STRING:"WRONG_STRING", NO_MATCH:"NO_MATCH" };
+
+class DirectionMonitor {
+  constructor(windowMs=1200){ this.windowMs=windowMs; this.samples=[]; }
+  reset(){ this.samples.length=0; }
+  update(now, cents){ this.samples.push([now,cents]); while(this.samples.length && now-this.samples[0][0]>this.windowMs) this.samples.shift(); }
+  slope(){
+    const n=this.samples.length; if(n<3) return 0;
+    const meanX=this.samples.reduce((a,s)=>a+s[0],0)/n;
+    const meanY=this.samples.reduce((a,s)=>a+Math.abs(s[1]),0)/n;
+    let num=0, den=0;
+    for(const [x,y] of this.samples){ const dx=x-meanX; num+=dx*(Math.abs(y)-meanY); den+=dx*dx; }
+    return den<1e-6 ? 0 : num/den;
+  }
+}
+
+class TunerEngine {
+  constructor(){ this.tuning = defaultFor("guitar"); this.mode="smart"; this.manualString=6;
+    this.dm = new DirectionMonitor(); this.lastTarget=null; }
+  process(freq, confidence){
+    const midi = midiFromFreq(freq);
+    const note = parseNote(noteName(midi));
+    const centsFromNote = centsBetween(freq, note.freq);
+
+    let matched=null, matchedDist=Infinity;
+    for(const s of this.tuning.strings){
+      const d = Math.abs(centsBetween(freq, s.note.freq));
+      if(d<matchedDist){ matchedDist=d; matched=s; }
+    }
+    const target = this.mode==="smart" ? matched :
+      (this.tuning.strings.find(s=>s.number===this.manualString) || null);
+    const targetCents = target ? centsBetween(freq, target.note.freq) : centsFromNote;
+
+    if (target && target.number !== this.lastTarget){ this.dm.reset(); this.lastTarget=target.number; }
+    if (target && Math.abs(targetCents)<=60 && confidence>=0.7){
+      this.dm.update(performance.now(), targetCents);
+    }
+    const hint = this.evaluateHint(confidence, target, targetCents, matched, matchedDist, freq);
+    return { note, freq, centsFromNote, targetString: target?target.number:null,
+      targetNote: target?target.note:null, centsFromTarget: targetCents,
+      matchedString: matched?matched.number:null, hint };
+  }
+  evaluateHint(confidence, target, targetCents, matched, matchedDist, freq){
+    if(!target) return Hint.NO_MATCH;
+    if(confidence < 0.7) return Hint.LISTENING;
+    const absC = Math.abs(targetCents);
+    if(absC <= 5) return Hint.IN_TUNE;
+    if(this.mode==="manual" && matched && matched.number!==target.number && absC>20){
+      const mc = Math.abs(centsBetween(freq, matched.note.freq));
+      if(mc < absC-30) return Hint.WRONG_STRING;
+    }
+    if(matchedDist<=40 && absC>=5 && absC<=60){
+      const slopeCps = this.dm.slope()*1000;
+      if(slopeCps > 12) return Hint.WRONG_DIRECTION;
+    }
+    return targetCents>0 ? Hint.SHARP : Hint.FLAT;
+  }
+}
+
+/* ================= 状态 ================= */
+const engine = new TunerEngine();
+let currentKey = store.instrument;
+let tuning = currentTuning(currentKey);
+engine.tuning = tuning;
+engine.mode = store.mode;
+engine.manualString = store.manualString || tuning.strings[tuning.strings.length-1].number;
+
+let smoothedFreq=0, hasSmoothed=false;
+const SMOOTH_ALPHA = 0.3;
+
+/* ================= DOM ================= */
+const $ = id => document.getElementById(id);
+const noteEl=$("note"), detailEl=$("detail"), freqEl=$("freq"), centsEl=$("cents"), hintEl=$("hint");
+const gaugeEl=$("gauge"), instrumentRow=$("instrumentRow"), stringRow=$("stringRow");
+const startBtn=$("startBtn"), modeBtn=$("modeBtn"), tuningBtn=$("tuningBtn");
+
+/* ================= UI 渲染 ================= */
+function renderInstruments(){
+  instrumentRow.innerHTML="";
+  INSTRUMENTS.forEach(inst=>{
+    const d=document.createElement("div");
+    d.className="chip"+(inst.key===currentKey?" active":"");
+    d.textContent=inst.name;
+    d.onclick=()=>selectInstrument(inst.key);
+    instrumentRow.appendChild(d);
+  });
+}
+function renderStrings(){
+  stringRow.innerHTML="";
+  const many = tuning.strings.length>8;
+  tuning.strings.forEach(s=>{
+    const d=document.createElement("div");
+    d.className="string";
+    d.style.fontSize = many ? "10px" : "12px";
+    d.innerHTML = '<span class="n">'+s.number+'弦</span>'+s.note.fullName;
+    d.onclick=()=>{
+      engine.mode="manual"; engine.manualString=s.number; store.mode="manual"; store.manualString=s.number;
+      updateModeBtn(); highlightString(s.number);
+    };
+    stringRow.appendChild(d);
+  });
+  highlightString(null);
+}
+function highlightString(active){
+  [...stringRow.children].forEach((el,i)=>{
+    const num = tuning.strings[i].number;
+    const on = num===active;
+    el.classList.toggle("active", on);
+  });
+}
+function updateModeBtn(){ modeBtn.textContent = engine.mode==="smart" ? "智能模式" : "手动模式"; }
+function updateTuningBtn(){ tuningBtn.textContent = tuning.name; }
+
+function selectInstrument(key){
+  if(key===currentKey) return;
+  currentKey=key; store.instrument=key;
+  tuning=currentTuning(key); engine.tuning=tuning;
+  engine.manualString=tuning.strings[tuning.strings.length-1].number;
+  store.manualString=engine.manualString;
+  renderInstruments(); renderStrings(); updateTuningBtn();
+}
+function setHint(text, color){
+  hintEl.textContent=text; hintEl.style.color=color;
+  const a = hexToRgba(color, 34);
+  hintEl.style.backgroundColor = a;
+}
+function hexToRgba(hex, alpha){
+  const c = hex.replace('#','');
+  const r=parseInt(c.slice(0,2),16), g=parseInt(c.slice(2,4),16), b=parseInt(c.slice(4,6),16);
+  return `rgba(${r},${g},${b},${alpha/255})`;
+}
+
+/* ================= 仪表盘绘制 ================= */
+function drawGauge(cents, active){
+  const dpr = window.devicePixelRatio||1;
+  const rect = gaugeEl.getBoundingClientRect();
+  const w = rect.width, h = rect.height;
+  if(w<10||h<10) return;
+  gaugeEl.width = w*dpr; gaugeEl.height = h*dpr;
+  const ctx = gaugeEl.getContext("2d");
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,w,h);
+
+  const RANGE=100;
+  const cx=w/2, cy=h*0.94, r=Math.min(w,h)*0.80;
+  const angleRad = c => (180 + (c+RANGE)/(2*RANGE)*180) * Math.PI/180;
+
+  ctx.lineCap="butt";
+  // 轨道
+  ctx.beginPath(); ctx.arc(cx,cy,r, Math.PI, 0); ctx.strokeStyle="#232A36"; ctx.lineWidth=13; ctx.stroke();
+  // 分区
+  const zones=[[-100,-30,"#EF4444"],[-30,-5,"#F59E0B"],[-5,5,"#22C55E"],[5,30,"#F59E0B"],[30,100,"#EF4444"]];
+  zones.forEach(([a,b,color])=>{
+    ctx.beginPath();
+    ctx.arc(cx,cy,r, angleRad(a), angleRad(b));
+    ctx.strokeStyle=color;
+    ctx.globalAlpha = active ? 1 : 0.28;
+    ctx.lineWidth=13; ctx.stroke();
+    ctx.globalAlpha=1;
+  });
+  // 刻度
+  for(let c=-100;c<=100;c+=5){
+    const major = c%20===0;
+    const r1 = r*(major?0.80:0.86), r2=r*0.94;
+    const ang = angleRad(c);
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(ang)*r1, cy+Math.sin(ang)*r1);
+    ctx.lineTo(cx+Math.cos(ang)*r2, cy+Math.sin(ang)*r2);
+    ctx.strokeStyle="#5A6478"; ctx.lineWidth=1.5; ctx.stroke();
+  }
+  // 标签
+  ctx.fillStyle="#6B7280"; ctx.font="11px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  [-100,-50,0,50,100].forEach(c=>{
+    const ang=angleRad(c), lr=r*0.62;
+    const lx=cx+Math.cos(ang)*lr, ly=cy+Math.sin(ang)*lr;
+    ctx.fillText(c===0?"0":(c>0?"+"+c:""+c), lx, ly);
+  });
+  // 指针
+  const inTune = active && Math.abs(cents)<=5;
+  const a=Math.abs(cents);
+  let ncolor = "#4A5262";
+  if(active){ ncolor = a<=5 ? "#22C55E" : a<=30 ? "#F59E0B" : "#EF4444"; }
+  const na = angleRad(Math.max(-RANGE,Math.min(RANGE,cents)));
+  const nl = r*0.74;
+  ctx.lineCap="round";
+  if(inTune){ ctx.shadowColor="#22C55E"; ctx.shadowBlur=16; }
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(na)*nl, cy+Math.sin(na)*nl);
+  ctx.strokeStyle=ncolor; ctx.lineWidth=4; ctx.stroke();
+  ctx.shadowBlur=0;
+  // 中心
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.075,0,Math.PI*2); ctx.fillStyle="#9AA3B2"; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.04,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill();
+}
+
+/* ================= 实时回调 ================= */
+const HINT_TEXT = {
+  LISTENING:["请拨动琴弦…","#9AA3B2"],
+  IN_TUNE:["✓ 已调准","#22C55E"],
+  SHARP:["偏高，请调低","#F59E0B"],
+  FLAT:["偏低，请调高","#F59E0B"],
+  WRONG_DIRECTION:["⚠ 拧反方向了，反着拧","#EF4444"],
+  WRONG_STRING:["⚠ 可能调错弦：这听起来更像第 {n} 弦","#EF4444"],
+  NO_MATCH:["未匹配到琴弦，请检查调弦设定","#EF4444"]
+};
+
+function onPitch(freq, confidence){
+  const f = freq;
+  if(!hasSmoothed){ smoothedFreq=f; hasSmoothed=true; } else { smoothedFreq += SMOOTH_ALPHA*(f-smoothedFreq); }
+  const r = engine.process(smoothedFreq, confidence);
+
+  noteEl.textContent = r.note.name;
+  noteEl.style.color = r.hint===Hint.IN_TUNE ? "#22C55E" : "#FFFFFF";
+  detailEl.textContent = (r.targetString && r.targetNote) ? ("第"+r.targetString+"弦 · "+r.targetNote.fullName) : r.note.fullName;
+  freqEl.textContent = r.freq.toFixed(1)+" Hz";
+  const c=r.centsFromTarget;
+  centsEl.textContent = (c>=0?"+":"-")+Math.abs(c).toFixed(1)+" ¢";
+
+  drawGauge(c, true);
+  highlightString(r.targetString);
+  renderHint(r);
+}
+function onNoSignal(){
+  hasSmoothed=false;
+  drawGauge(0,false);
+  highlightString(null);
+  noteEl.style.color="#FFFFFF";
+  setHint("请拨动琴弦…", "#9AA3B2");
+}
+function renderHint(r){
+  let [text,color] = HINT_TEXT[r.hint];
+  if(r.hint===Hint.WRONG_STRING) text = text.replace("{n}", r.matchedString);
+  setHint(text, color);
+}
+
+/* ================= 音频引擎 ================= */
+let audioCtx=null, analyser=null, stream=null, running=false, rafId=null, timeData=null, lastDetect=0;
+
+async function startAudio(){
+  if(running) return;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false }
+    });
+  } catch(e){
+    setHint("无法访问麦克风：请允许权限，且需使用 HTTPS 或 localhost 访问", "#EF4444");
+    return;
+  }
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(stream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 4096;
+  src.connect(analyser);
+  timeData = new Float32Array(analyser.fftSize);
+  if(audioCtx.state==="suspended"){ try{ await audioCtx.resume(); }catch(e){} }
+  running=true; lastDetect=0;
+  startBtn.textContent="■ 停止调音"; startBtn.classList.add("running");
+  setHint("请拨动琴弦…","#9AA3B2");
+  loop();
+}
+function loop(){
+  if(!running) return;
+  rafId=requestAnimationFrame(loop);
+  const now=performance.now();
+  if(now-lastDetect < 40) return;
+  lastDetect=now;
+  analyser.getFloatTimeDomainData(timeData);
+  const n = 4096;
+  let sumSq=0; for(let i=0;i<n;i++) sumSq += timeData[i]*timeData[i];
+  const rms = Math.sqrt(sumSq/n);
+  if(rms < 0.008){ onNoSignal(); return; }
+  const res = yinDetect(timeData.subarray(0,n), audioCtx.sampleRate);
+  if(!res || res.freq<28 || res.freq>1600){ onNoSignal(); return; }
+  onPitch(res.freq, res.confidence);
+}
+function stopAudio(){
+  running=false;
+  if(rafId) cancelAnimationFrame(rafId);
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  if(audioCtx){ audioCtx.close().catch(()=>{}); audioCtx=null; }
+  startBtn.textContent="🎙 开始调音"; startBtn.classList.remove("running");
+  onNoSignal();
+}
+
+/* ================= 调弦选择弹层 ================= */
+function openTuningModal(){
+  const list = allTunings(currentKey);
+  const el=$("tuningList"); el.innerHTML="";
+  $("tuningModalTitle").textContent = (INSTRUMENTS.find(i=>i.key===currentKey)||{}).name + " · 调弦";
+  list.forEach(t=>{
+    const d=document.createElement("div"); d.className="titem"+(t.name===tuning.name?" sel":"");
+    const info=document.createElement("div");
+    info.innerHTML='<div class="tname">'+(t.isCustom?t.name+" ✎":t.name)+'</div>'+
+      '<div class="tnotes">'+t.strings.slice().reverse().map(s=>s.note.fullName).join(" ")+'</div>';
+    d.appendChild(info);
+    if(t.isCustom){
+      const del=document.createElement("span"); del.className="del"; del.textContent="删除";
+      del.onclick=(e)=>{ e.stopPropagation(); deleteCustom(t.name); };
+      d.appendChild(del);
+    }
+    d.onclick=()=>{ store.setTuning(currentKey,t.name); tuning=t; engine.tuning=t;
+      engine.manualString=t.strings[t.strings.length-1].number;
+      updateTuningBtn(); renderStrings(); closeTuningModal(); };
+    el.appendChild(d);
+  });
+  $("tuningModal").classList.add("open");
+}
+function closeTuningModal(){ $("tuningModal").classList.remove("open"); }
+function deleteCustom(name){
+  if(!confirm("确定删除「"+name+"」吗？")) return;
+  store.custom = store.custom.filter(c=>c.name!==name);
+  if(store.getTuning(currentKey)===name){ store.setTuning(currentKey, defaultFor(currentKey).name); }
+  if(tuning.name===name){ tuning=currentTuning(currentKey); engine.tuning=tuning; updateTuningBtn(); renderStrings(); }
+  openTuningModal();
+}
+
+/* ================= 自定义调弦编辑器 ================= */
+const NOTE_OPTS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const OCT_OPTS = ["1","2","3","4","5","6"];
+let customRows = [];
+
+function openCustomModal(){
+  $("customModalTitle").textContent="自定义调弦";
+  $("customName").value="";
+  customRows=[];
+  // 默认 6 弦标准（1弦最高 → 6弦最低）
+  ["E4","B3","G3","D3","A2","E2"].forEach(fn=>addCustomRow(parseNote(fn)));
+  $("customModal").classList.add("open");
+}
+function addCustomRow(note){
+  const row=document.createElement("div"); row.className="srow";
+  const lab=document.createElement("span"); lab.className="lab"; lab.textContent="第"+(customRows.length+1)+"弦";
+  const selName=document.createElement("select");
+  NOTE_OPTS.forEach(n=>{ const o=document.createElement("option"); o.value=n; o.textContent=n; selName.appendChild(o); });
+  selName.value=note.name;
+  const selOct=document.createElement("select");
+  OCT_OPTS.forEach(n=>{ const o=document.createElement("option"); o.value=n; o.textContent=n; selOct.appendChild(o); });
+  selOct.value=String(note.octave);
+  row.appendChild(lab); row.appendChild(selName); row.appendChild(selOct);
+  $("customStrings").appendChild(row);
+  customRows.push([selName, selOct]);
+}
+function removeCustomRow(){
+  if(customRows.length<=1) return;
+  customRows.pop();
+  $("customStrings").lastElementChild.remove();
+}
+function saveCustom(){
+  const name=$("customName").value.trim()||"自定义调弦";
+  const notes=customRows.map(([n,o])=>n.value+o.value); // 弦号升序：1弦..N弦
+  store.custom = store.custom.filter(c=>c.name!==name).concat([{name,notes}]);
+  store.setTuning(currentKey,name);
+  tuning=currentTuning(currentKey); engine.tuning=tuning;
+  engine.manualString=tuning.strings[tuning.strings.length-1].number;
+  updateTuningBtn(); renderStrings();
+  $("customModal").classList.remove("open");
+}
+
+/* ================= 事件绑定 ================= */
+startBtn.onclick=()=>{ running ? stopAudio() : startAudio(); };
+modeBtn.onclick=()=>{
+  engine.mode = engine.mode==="smart"?"manual":"smart";
+  store.mode=engine.mode; updateModeBtn();
+};
+tuningBtn.onclick=openTuningModal;
+$("closeTuningBtn").onclick=closeTuningModal;
+$("newTuningBtn").onclick=()=>{ closeTuningModal(); openCustomModal(); };
+$("cancelCustomBtn").onclick=()=>$("customModal").classList.remove("open");
+$("saveCustomBtn").onclick=saveCustom;
+$("addStringBtn").onclick=()=>addCustomRow(parseNote("E2"));
+$("removeStringBtn").onclick=removeCustomRow;
+window.addEventListener("resize", ()=>{ if(!running) drawGauge(0,false); });
+
+/* ================= 初始化 ================= */
+renderInstruments();
+renderStrings();
+updateModeBtn();
+updateTuningBtn();
+drawGauge(0,false);
+setHint("点击下方「开始调音」授权麦克风","#9AA3B2");
+</script>
+</body>
+</html>
